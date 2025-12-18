@@ -1,0 +1,95 @@
+# Pokemon QoE Project - Git Ignore File
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Data (keep structure, ignore large files)
+data/processed/*.csv
+data/processed/*.pkl
+data/external/*
+!data/processed/.gitkeep
+!data/external/.gitkeep
+
+# Models (keep structure, ignore trained models)
+models/*.pkl
+models/*.h5
+models/*.joblib
+!models/.gitkeep
+
+# Results (keep structure, ignore generated files)
+results/figures/*.png
+results/figures/*.jpg
+results/figures/*.pdf
+results/tables/*.csv
+results/tables/*.xlsx
+results/metrics/*.json
+results/metrics/*.txt
+!results/figures/.gitkeep
+!results/tables/.gitkeep
+!results/metrics/.gitkeep
+
+# Reports
+reports/*.pdf
+reports/*.docx
+reports/*.html
+!reports/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+temp_*.py
+*_temp.py
+scratch*.py
+
+# Archive folder (optional temporary scripts)
+archive/
