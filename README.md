@@ -4,6 +4,9 @@
 [![License](https://img.shields.io/badge/License-Academic-green.svg)]()
 [![Status](https://img.shields.io/badge/Status-Complete-success.svg)]()
 
+> **모바일 비디오 스트리밍 품질 예측 및 분석 프로젝트**
+> Pokemon QoE 데이터셋(1,543개 세션)을 활용하여 객관적 기술 지표로부터 사용자 만족도(MOS)를 예측하는 머신러닝 모델을 개발하고, 버퍼링이 사용자 경험에 미치는 영향을 분석합니다.
+
 ![MOS Distribution](results/figures/01_data_understanding/mos_distribution.png)
 
 ## Executive Summary
@@ -478,7 +481,7 @@ Top correlations with MOS:
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/Poqemon-QoE-Dataset-master.git
+git clone https://github.com/CY-HYUN/Poqemon-QoE-Dataset-master.git
 cd Poqemon-QoE-Dataset-master
 
 # Create virtual environment

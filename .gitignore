@@ -40,6 +40,9 @@ ENV/
 *~
 .DS_Store
 
+# Claude Code local settings
+.claude/settings.local.json
+
 # Data (keep structure, ignore large files)
 data/processed/*.csv
 data/processed/*.pkl
