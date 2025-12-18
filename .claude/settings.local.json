@@ -4,7 +4,10 @@
       "Bash(find:*)",
       "Bash(git init:*)",
       "Bash(git remote add:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: Poqemon QoE Dataset analysis project\n\nAdd complete project structure including:\n- Data analysis notebooks for Pokemon video QoE dataset\n- Machine learning models for MOS prediction\n- Visualization utilities and analysis results\n- Project documentation and guidelines\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\ndocs: Update .gitignore and README with Korean description\n\nChanges:\n- Add .claude/settings.local.json to .gitignore to exclude local settings\n- Add Korean project description at top of README\n- Update repository URL from placeholder to actual GitHub URL\n\nThis ensures local configuration files are not tracked and provides\nclear project description for Korean-speaking contributors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []
