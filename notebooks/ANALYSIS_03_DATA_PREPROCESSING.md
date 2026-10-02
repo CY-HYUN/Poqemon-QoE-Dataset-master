@@ -1,5 +1,7 @@
 # Notebook 03: Data Preprocessing - Analysis Report
 
+> ⚠️ **This write-up does not match the committed notebook 03.** The committed notebook removes 4 columns (not 6 — it keeps `QoU_Ustedy` and `QoA_VLCresolution`) and engineers 4 features (`Buffering_Severity` = count × time/1000, `Network_Generation`, `Video_Quality_Index`, `Audio_Quality`); `QoA_BUFFERINGtime_log` and `Excessive_Buffering` were never implemented, and the variant split happens at modeling time, not here. The authoritative preprocessing is in [`scripts/run_leakage_experiment.py`](../scripts/run_leakage_experiment.py) and `notebooks/03_data_preprocessing.ipynb` (verified against `data/processed/feature_names.txt`). Kept as-is as a historical plan document.
+
 ## Objective
 
 **WHY preprocessing?**

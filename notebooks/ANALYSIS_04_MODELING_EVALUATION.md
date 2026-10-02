@@ -1,5 +1,7 @@
 # Notebook 04: Modeling and Evaluation - Analysis Report
 
+> ⚠️ **Superseded numbers.** This write-up documents the original notebook-04 modeling pass (no class weights, hand-set hyperparameters, weighted F1 reported as "F1"). The canonical experiment is now [`scripts/run_leakage_experiment.py`](../scripts/run_leakage_experiment.py) (balanced class weights, library defaults, macro F1) — its results in [`results/metrics/model_comparison.csv`](../results/metrics/model_comparison.csv) and the README are the numbers to quote. Kept as-is for the exploration history.
+
 ## Objective
 
 **WHY modeling?**

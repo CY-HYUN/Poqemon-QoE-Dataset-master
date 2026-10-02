@@ -472,7 +472,7 @@ Proper Git ignore patterns:
 
 1. **Install Dependencies**
    ```bash
-   cd "C:\changyong\Study\Github\TSP\Data Science - Theory to practice\Poqemon-QoE-Dataset-master"
+   cd Poqemon-QoE-Dataset-master
    pip install -r requirements.txt
    ```
 

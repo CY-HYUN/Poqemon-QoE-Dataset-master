@@ -1,5 +1,7 @@
 # Pokemon QoE Dataset Project - Completion Summary
 
+> ⚠️ **Superseded numbers.** This summary predates [`scripts/run_leakage_experiment.py`](../scripts/run_leakage_experiment.py), which is now the canonical source for all model numbers (balanced class weights, library defaults, macro F1). Quote the README / [`results/metrics/model_comparison.csv`](../results/metrics/model_comparison.csv), not the figures below. Kept as-is as a historical record.
+
 ## Project Status: ✅ COMPLETE
 
 **Completion Date:** October 13, 2025
@@ -336,7 +338,7 @@ If continuing this project, prioritize:
 ## Contact & Support
 
 **Project Files Location:**
-`D:\Study\Github\TSP\Data Science - Theory to practice\Poqemon-QoE-Dataset-master`
+`Poqemon-QoE-Dataset-master`
 
 **Key Documents:**
 - Main Report: `reports/FINAL_PROJECT_REPORT.md`
@@ -345,7 +347,7 @@ If continuing this project, prioritize:
 
 **To Run Analysis:**
 ```bash
-cd "D:\Study\Github\TSP\Data Science - Theory to practice\Poqemon-QoE-Dataset-master"
+cd Poqemon-QoE-Dataset-master
 
 # View results
 ls results/figures/      # 8 visualizations

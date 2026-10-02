@@ -1,696 +1,155 @@
-# Pokemon QoE Dataset: Predicting Mobile Video Streaming Quality of Experience
+# Poqemon QoE: Honest Prediction of Mobile Video Streaming Quality
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/License-Academic-green.svg)]()
-[![Status](https://img.shields.io/badge/Status-Complete-success.svg)]()
+Machine learning on 1,543 real mobile video streaming sessions to predict user satisfaction (MOS 1-5) from objective technical metrics — with a controlled experiment that quantifies exactly how much accuracy inflation data leakage causes on this dataset.
 
-![MOS Distribution](results/figures/01_data_understanding/mos_distribution.png)
+[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![scikit--learn](https://img.shields.io/badge/scikit--learn-1.9.0-orange.svg)](https://scikit-learn.org/)
+![Status](https://img.shields.io/badge/Status-Complete-success.svg)
 
-## Executive Summary
+## Headline Results
 
-This project analyzes the **Pokemon Quality of Experience (QoE) dataset** containing 1,543 mobile video streaming sessions to build predictive models that estimate user satisfaction (MOS scores 1-5) from objective technical metrics. The goal is to enable real-time QoE monitoring without expensive user surveys.
+> **With objective technical metrics only, the best model (Gradient Boosting) reaches 48.2% test accuracy, macro F1 0.442, Cohen's kappa 0.261 — versus the majority baseline's 50.8% accuracy, 0.135 macro F1, 0.000 kappa.**
+> **Adding the dataset's subjective user-feedback features inflates the best model to 81.6% accuracy (macro F1 0.793): a quantified 33.3-point data-leakage gap.**
+> **The 81.6% figure is the contaminated benchmark, not a deployable result — the honest number is 48.2%.**
 
-### Key Achievements
+The honest headline sits *below* the majority baseline on raw accuracy, and that is not a typo: with genuinely balanced class weights the models stop defaulting to the majority class ("Good", 50.8% of samples), trading raw accuracy for minority-class detection — Bad-session recall rises to 84.2%, and the chance-corrected metrics clearly beat the baseline (kappa 0.261 vs 0.000, macro F1 0.442 vs 0.135). A majority-class predictor scores 50.8% accuracy while detecting nothing.
 
-- **Best Objective Model**: Gradient Boosting classifier achieving **59.5% accuracy** (8.7 percentage points above 50.8% baseline)
-- **Critical Finding**: Buffering metrics account for **36.6% of feature importance**, confirming it as the dominant factor affecting user experience
-- **Data Leakage Verified**: Models including subjective user feedback achieve 81.9% accuracy—a **22.4 percentage point gap** proving these features are unsuitable for real-world deployment
-- **Honest Assessment**: 59.5% accuracy is valuable for trend monitoring but insufficient for high-stakes automated decisions
-
----
-
-## Table of Contents
-
-- [Background and Motivation](#background-and-motivation)
-- [Dataset Description](#dataset-description)
-- [Methodology](#methodology)
-- [Key Results](#key-results)
-- [Visualizations](#visualizations)
-- [Critical Assessment](#critical-assessment)
-- [Installation and Usage](#installation-and-usage)
-- [Project Structure](#project-structure)
-- [Future Improvements](#future-improvements)
-- [References](#references)
-- [Appendix](#appendix)
-
----
-
-## Background and Motivation
-
-### The Problem
-
-Mobile video streaming dominates network traffic, yet network operators struggle to connect technical Quality of Service (QoS) metrics—bandwidth, latency, packet loss—with actual user satisfaction. Traditional user surveys provide ground truth but are expensive, time-consuming, and incompatible with real-time monitoring.
-
-### Dataset Origin
-
-The Pokemon QoE dataset originates from the **PoQeMoN Project** (Platform Quality Evaluation of Mobile Networks), a crowdsourcing campaign conducted at:
-
-- **Institution**: LiSSi laboratory, Paris Est Créteil University, France
-- **Participants**: 181 testers (researchers, students, and families)
-- **Demographics**: Ages 19-38, minimal video assessment experience
-- **Networks**: 4 French mobile operators (Orange, SFR, Bouygues, Free)
-- **Platforms**: 9 Android devices with VLC media player
-- **Data Collection**: Around Paris, France (various locations: lab, train stations, walking)
-
-### Research Questions
-
-This project addresses four critical questions:
-
-1. **Predictive Power**: Can we predict user satisfaction (MOS) from objective metrics with accuracy significantly better than random guessing?
-2. **Key Drivers**: Which technical factors (buffering, bitrate, network type) most influence user satisfaction?
-3. **Data Integrity**: Does the dataset contain data leakage from subjective feedback features (QoF_*)?
-4. **Deployment Feasibility**: What realistic accuracy can a deployable system achieve, and what are its limitations?
-
----
-
-## Dataset Description
-
-### Overview
-
-- **Total Samples**: 1,543 video viewing sessions (original documentation mentions 1,560; actual CSV contains 1,543)
-- **Features**: 23 influence factors across 5 categories
-- **Target Variable**: MOS (Mean Opinion Score) - 1 to 5 scale
-- **Missing Values**: ✅ **None** (100% complete dataset)
-
-### Target Variable: MOS Distribution
-
-The dataset exhibits **severe class imbalance**:
-
-| MOS Score | Label | Count | Percentage | Color Code |
-|-----------|-------|-------|------------|------------|
-| 1 | Bad | 93 | 6.0% | 🔴 |
-| 2 | Poor | 118 | 7.6% | 🟠 |
-| 3 | Fair | 246 | 15.9% | 🟡 |
-| **4** | **Good** | **784** | **50.8%** | 🟢 **← Majority Class** |
-| 5 | Excellent | 302 | 19.6% | 🔵 |
-
-**Critical Challenge**: MOS=4 dominates, requiring stratified sampling and balanced class weights.
-
-### Feature Categories
-
-#### QoA - Video Quality of Application (8 features)
-
-Metrics captured from VLC media player:
-
-- `QoA_VLCresolution`: Video vertical resolution (240p, 360p)
-- `QoA_VLCbitrate`: Video bitrate (kbps)
-- `QoA_VLCframerate`: Playback frame rate (fps)
-- `QoA_VLCdropped`: Dropped video frames count
-- `QoA_VLCaudiorate`: Audio stream bitrate (kbps)
-- `QoA_VLCaudioloss`: Lost audio packets count
-- `QoA_BUFFERINGcount`: Number of buffering events ⚠️ **Critical**
-- `QoA_BUFFERINGtime`: Total buffering time (milliseconds) ⚠️ **Critical**
-
-#### QoS - Network Quality of Service (2 features)
-
-- `QoS_type`: Network technology (1=EDGE, 2=UMTS, 3=HSPA, 4=HSPAP, 5=LTE)
-- `QoS_operator`: Mobile operator (1=SFR, 2=Bouygues, 3=Orange, 4=Free)
-
-#### QoD - Device Quality (3 features)
-
-- `QoD_model`: Android device model (e.g., D5803)
-- `QoD_os-version`: Android OS version
-- `QoD_api-level`: Android API level
-
-#### QoU - User Quality (3 features)
-
-- `QoU_sex`: Gender (0=Female, 1=Male)
-- `QoU_age`: Age in years
-- `QoU_Ustedy`: Education level (1-5 scale, 92.4% same value - low variance)
-
-#### QoF - User Feedback (4 features) ⚠️ **Data Leakage Risk**
-
-Subjective ratings provided by users:
-
-- `QoF_begin`: Session start quality perception (1-5)
-- `QoF_shift`: Time-shifting functionality satisfaction (1-5)
-- `QoF_audio`: Audio quality rating (1-5) **r=0.841 with MOS** 🚨
-- `QoF_video`: Video quality rating (1-5) **r=0.689 with MOS** 🚨
-
-**Critical Finding**: These features correlate extremely highly with MOS, indicating they measure the same subjective perception. Including them creates "predict subjective from subjective" models unsuitable for deployment.
-
----
-
-## Methodology
-
-This project follows a rigorous **4-stage data science pipeline** with emphasis on storytelling, critical assessment, and honest evaluation.
-
-### Stage 1: Data Understanding
-
-**Objectives**:
-- Validate dataset against documentation
-- Check data quality and completeness
-- Analyze target variable distribution
-
-**Key Findings**:
-- ✅ Sample count: 1,543 (vs 1,560 documented, -1% acceptable discrepancy)
-- ✅ Missing values: 0 (100% complete)
-- ⚠️ Class imbalance: MOS=4 represents 50.8% (severe imbalance)
-
-### Stage 2: Exploratory Data Analysis (EDA)
-
-**Correlation Analysis**:
-
-Top correlations with MOS:
-- **QoF_audio**: +0.841 (🚨 Very strong - leakage risk)
-- **QoF_video**: +0.689 (🚨 Strong - leakage risk)
-- **QoA_VLCframerate**: +0.544 (Moderate positive)
-- **QoA_BUFFERINGtime**: -0.482 (Strong negative) ⚡ **Key predictor**
-- **QoA_BUFFERINGcount**: -0.411 (Moderate negative) ⚡ **Key predictor**
-
-**Network Type Impact** (ANOVA F=37.47, p<0.001):
-
-| Network | Mean MOS | Performance |
-|---------|----------|-------------|
-| HSPA (4) | 3.84 | 🟢 Best |
-| LTE (5) | 3.78 | 🟢 Excellent |
-| UMTS (2) | 3.64 | 🟡 Good |
-| 3G+ (3) | 3.26 | 🟠 Fair |
-| EDGE (1) | 1.56 | 🔴 Poor |
-
-**Buffering Threshold Discovery**:
-- 0-2 buffering events: MOS ≥ 3.6 (Good/Fair) ✅
-- ≥3 buffering events: MOS < 2.4 (Poor/Bad) 🔴
-
-**Unexpected Findings**:
-- ❌ Video bitrate: r=0.090 (weak - expected strong)
-- ❌ Resolution: r=-0.022 (negative - counterintuitive)
-  - Explanation: Adaptive streaming may cause higher resolution to buffer more on poor networks
-
-### Stage 3: Data Preprocessing
-
-**Feature Removal** (6 features removed):
-- `id`, `user_id`: Identifiers with no predictive value
-- `QoD_model`, `QoD_os-version`: High cardinality (overfitting risk)
-- `QoU_Ustedy`: Low variance (92.4% same value)
-- `QoA_VLCresolution`: Weak, counterintuitive correlation
-
-**Feature Engineering**:
-- `Buffering_Severity`: count × log(time + 1) - composite buffering impact
-- `QoA_BUFFERINGtime_log`: log(time + 1) - handle outliers (max: 329 seconds)
-- `Network_Generation`: Grouped 5 types → 3 generations (2G, 3G, 4G)
-- `Excessive_Buffering`: Binary flag (1 if count > 2)
-- `Video_Quality_Index`: Composite of bitrate, framerate, dropped frames
-- `Audio_Quality_Adjusted`: Composite of audio rate and loss
-
-**Dataset Variants**:
-- **Dataset A (Objective Only)**: Excludes QoF_* features - realistic deployment scenario
-- **Dataset B (Full Features)**: Includes all features - benchmark to quantify leakage
-
-**Train/Test Split**:
-- 80/20 split (1,234 train / 309 test)
-- **Stratified sampling** to preserve class imbalance
-- Random seed=42 for reproducibility
-
-**Feature Scaling**:
-- StandardScaler (mean=0, std=1)
-- **Fitted on training data only** to prevent data leakage
-
-### Stage 4: Modeling and Evaluation
-
-**Algorithms Tested**:
-- **Baseline**: Majority class predictor (must beat 50.8%)
-- **Logistic Regression**: Test linear relationships
-- **Decision Tree**: Capture simple non-linear rules
-- **Random Forest**: Ensemble method to reduce overfitting
-- **Gradient Boosting**: Handle complex interactions and hard-to-classify samples
-
-**Class Imbalance Handling**:
-- `class_weight='balanced'` in all models
-- Penalizes errors on minority classes more heavily
-
-**Evaluation Metrics**:
-- **Accuracy**: Overall correctness (interpret cautiously with imbalance)
-- **F1-Score (Macro)**: Harmonic mean of precision and recall (better for imbalance)
-- **Cohen's Kappa**: Inter-rater agreement correcting for chance (ideal for ordinal MOS)
-- **Overfit Gap**: Train accuracy - Test accuracy (diagnose overfitting)
-
----
-
-## Key Results
-
-### Model Performance Comparison
-
-| Model | Dataset | Train Accuracy | Test Accuracy | Precision | Recall | F1 Score | Cohen's Kappa | Overfit Gap | Status |
-|-------|---------|----------------|---------------|-----------|--------|----------|---------------|-------------|--------|
-| **Baseline** | - | **50.8%** | **50.8%** | 0.258 | 0.508 | 0.342 | 0.000 | 0.0% | 🔴 Benchmark |
-| **OBJECTIVE MODELS (Realistic Deployment)** |
-| Logistic Regression | Objective | 45.7% | 43.4% | 0.491 | 0.434 | 0.445 | 0.221 | 2.3% | ❌ Below baseline |
-| Decision Tree | Objective | 64.0% | 42.4% | 0.520 | 0.424 | 0.430 | 0.236 | 21.6% | ❌ Below baseline + Overfit |
-| Random Forest | Objective | 99.7% | 53.4% | 0.482 | 0.534 | 0.486 | 0.227 | 46.3% | 🟡 Marginal improvement |
-| **Gradient Boosting** | **Objective** | **99.2%** | **59.5%** | **0.569** | **0.595** | **0.552** | **0.335** | **39.6%** | ✅ **BEST OBJECTIVE** |
-| **FULL MODELS (Benchmark with Data Leakage)** |
-| Logistic Regression | Full | 78.0% | 77.0% | 0.795 | 0.770 | 0.777 | 0.670 | 0.9% | 🔵 Excellent (Leakage) |
-| Random Forest | Full | 99.0% | 81.9% | 0.821 | 0.819 | 0.819 | 0.727 | 17.2% | 🔵 Best Overall (Leakage) |
+The leakage audit is the core contribution. The QoF_* features are ratings the user gave during the session (QoF_audio correlates r=0.841 with MOS) — information a deployed system never has. Training identical models with and without them turns "this benchmark looks too good" into a measured 33.3-point inflation, replicated across all four model families (+29.1 to +34.6 points).
 
 ![Model Comparison](results/figures/04_modeling_and_evaluation/8_model_comparison.png)
 
-### Result Interpretation
-
-#### 1. Best Objective Model: Gradient Boosting (59.5%)
-
-- **8.7 percentage point improvement** over baseline (50.8% → 59.5%)
-- Cohen's Kappa=0.335: "Fair agreement" - statistically significant beyond chance
-- **Trade-off**: 40.5% error rate limits high-stakes applications
-
-**Expected vs Actual**:
-- Expected: 60-70% accuracy
-- Actual: 59.5% (lower end but within range)
-- Why lower? Severe class imbalance, weak objective correlations, complex subjective factors
-
-#### 2. Data Leakage Confirmed: 22.4 Percentage Point Gap
-
-- **Objective Model**: 59.5% (realistic deployment)
-- **Full Model**: 81.9% (includes subjective feedback)
-- **Gap**: 22.4 percentage points - massive performance inflation
-- **Interpretation**: QoF_* features essentially predict "subjective rating from other subjective ratings"
-- **Conclusion**: Must exclude QoF_* for honest deployment estimates
-
-**Evidence**:
-- Logistic Regression: 43.4% (Obj) → 77.0% (Full) = **+33.6 points**
-- Random Forest: 53.4% (Obj) → 81.9% (Full) = **+28.5 points**
-- Full models have low overfit gap (0.9-17.2%) but generalize from subjective→subjective, not technical→QoE
-
-#### 3. Linear Model Failure
-
-- Logistic Regression (43.4%) performs **worse than baseline** (50.8%)
-- **Implication**: QoE-technical metric relationship is highly non-linear
-- Tree-based ensembles required to capture complex interactions
-
-#### 4. Severe Overfitting
-
-- Random Forest: 99.7% train → 53.4% test (**46.3% gap**)
-- Gradient Boosting: 99.2% train → 59.5% test (**39.6% gap**)
-- **Cause**: 1,234 training samples insufficient for complex tree ensembles
-- **Impact**: Models memorize training data, generalize poorly
-
-### Feature Importance Analysis
-
-![Feature Importance](results/figures/04_modeling_and_evaluation/6_feature_importance_rf.png)
-
-**Top 10 Features** (Gradient Boosting Objective Model):
-
-| Rank | Feature | Importance | Interpretation |
-|------|---------|------------|----------------|
-| 1 | QoA_BUFFERINGtime | ~14% | Raw buffering duration - single strongest predictor |
-| 2 | QoA_BUFFERINGtime_log | ~13% | Log-transformed buffering handles outliers |
-| 3 | Video_Quality_Index | ~10% | Engineered composite video metric |
-| 4 | QoA_VLCframerate | ~9.5% | Smooth playback critical for satisfaction |
-| 5 | Buffering_Severity | ~9.4% | Engineered: count × log(time) |
-| 6 | QoA_VLCbitrate | ~7.7% | Traditional quality metric remains important |
-| 7 | QoU_age | ~6.6% | Surprisingly strong non-linear age influence |
-| 8 | Audio_Quality_Adjusted | ~6.6% | Engineered audio quality metric |
-| 9 | QoA_VLCaudiorate | ~5.6% | Raw audio bitrate |
-| 10 | QoD_api-level | ~2.8% | Minor Android API level impact |
-
-**Key Insights**:
-
-1. **Buffering Dominates**: Top 3 buffering-related features account for **36.6% combined importance**
-   - Empirical proof that minimizing buffering is the #1 priority for QoE
-
-2. **Feature Engineering Works**: 3 engineered features in Top 10
-   - EDA-driven domain knowledge improves model performance
-
-3. **Network Type Indirect**: Not in Top 10 despite ANOVA significance (F=37.47, p<0.001)
-   - Models prefer direct outcomes (buffering) over proxies (network type)
-   - Poor networks cause buffering; model learns buffering→MOS directly
-
-### Per-Class Performance (Confusion Matrix)
-
-![Confusion Matrix](results/figures/04_modeling_and_evaluation/7_confusion_matrix_gradient_boosting.png)
-
-**Gradient Boosting (Objective) - Recall by Class**:
-
-| Actual MOS | Recall | Performance |
-|------------|--------|-------------|
-| 1 (Bad) | 42.1% | 🟠 Poor |
-| 2 (Poor) | 29.2% | 🔴 Poor |
-| 3 (Fair) | 26.5% | 🔴 Poor |
-| 4 (Good) | **91.1%** | 🟢 Excellent |
-| 5 (Excellent) | **15.0%** | 🔴 **Terrible** |
-
-**Problem**: Model biases toward MOS=4 despite class_weight='balanced'
-
-**MOS=5 Failure Explanation**:
-- "Excellent" QoE requires EVERYTHING perfect (zero buffering, high bitrate, smooth playback)
-- Without subjective ratings (QoF_*), technical metrics for MOS=4 and MOS=5 look very similar
-- **80% of MOS=5 samples misclassified as MOS=4**
-- Distinguishing "Good" from "Excellent" requires subjective perception unavailable in objective data
-
----
-
-## Visualizations
-
-### EDA Visualizations
-
-![Correlation Matrix](results/figures/02_exploratory_data_analysis/2_correlation_matrix.png)
-*Correlation heatmap showing QoF_* features' suspiciously high correlations with MOS (data leakage risk)*
-
-![Network Type Impact](results/figures/02_exploratory_data_analysis/3_network_type_vs_mos.png)
-*MOS distribution across network types - EDGE performs terribly (MOS=1.56), LTE/HSPA excellent (MOS≈3.8)*
-
-![Buffering Impact](results/figures/02_exploratory_data_analysis/4_buffering_vs_mos.png)
-*Strong negative relationship: more buffering → lower MOS. Clear threshold at 3+ buffering events*
-
-![Demographics](results/figures/02_exploratory_data_analysis/6_demographics_vs_mos.png)
-*Age and gender impact on MOS - age shows non-linear influence*
-
----
-
-## Critical Assessment
-
-### Strengths
-
-✅ **Rigorous Methodology**:
-- Proper train/test split with stratification
-- No data leakage (scaler fitted on train only)
-- Multiple algorithms compared systematically
-- Two-model approach tests data leakage hypothesis
-
-✅ **Domain-Informed Analysis**:
-- Feature engineering based on EDA insights (buffering threshold at 3 events)
-- Network generation grouping based on ANOVA results
-- Log transformation for outliers (buffering time max: 329 seconds)
-
-✅ **Honest Evaluation**:
-- Acknowledges 59.5% is modest (not overselling results)
-- Identifies severe overfitting (46.3% gap Random Forest)
-- Documents per-class failures (MOS=5 only 15% recall)
-- Discusses real-world deployment limitations transparently
-
-✅ **Comprehensive Documentation**:
-- Every decision justified with "WHY" before "WHAT"
-- Expected vs Actual comparisons throughout analysis
-- Storytelling approach following best practices
-- High-quality visualizations (DPI 300+, clean formatting)
-
-### Limitations
-
-#### 1. Low Objective Model Accuracy (59.5%)
-
-- Only 8.7 percentage points better than baseline (50.8%)
-- **40.5% error rate** problematic for critical applications
-- Minority classes poorly predicted (MOS=1: 42%, MOS=2: 29%, MOS=5: 15%)
-- **Impact**: Not suitable for automated SLA enforcement or high-stakes decisions
-
-#### 2. Severe Overfitting
-
-- Random Forest: **46.3% train-test gap** (99.7% train → 53.4% test)
-- Gradient Boosting: **39.6% train-test gap** (99.2% train → 59.5% test)
-- **Cause**: Limited training data (1,234 samples) for complex tree ensembles
-- **Impact**: Models memorize training data, don't generalize to unseen data
-
-#### 3. MOS=5 Prediction Failure
-
-- Only **15% recall** for Excellent ratings (worst class performance)
-- Can't distinguish "Good" (MOS=4) from "Excellent" (MOS=5) without subjective feedback
-- **80% of true MOS=5 sessions misclassified as MOS=4**
-- **Impact**: System won't detect truly excellent experiences for proactive optimization
-
-#### 4. Class Imbalance Not Fully Solved
-
-- class_weight='balanced' helps but insufficient
-- SMOTE (Synthetic Minority Over-sampling) not attempted
-- Threshold optimization not performed
-- **Impact**: Persistent bias toward majority class (MOS=4)
-
-#### 5. No Hyperparameter Tuning
-
-- Used default or simple hyperparameters
-- GridSearchCV could potentially improve **2-5 percentage points**
-- **Trade-off**: Time constraint vs marginal gains
-
-#### 6. Limited Feature Exploration
-
-- No interaction terms tested (e.g., buffering × network generation)
-- No polynomial features for Logistic Regression
-- Network features underutilized (not in top 10 importance)
-- **Potential**: 3-7 percentage point improvement possible
-
-### Real-World Feasibility
-
-#### Dataset Limitations
-
-⚠️ **Age**: 2015 data (10 years old)
-- Networks evolved: 5G now widely available
-- Video codecs improved: H.265/HEVC, AV1
-- User expectations changed: HD/4K now standard (dataset 95% at 360p)
-
-⚠️ **Geographic Specificity**: France-only, Paris region
-- 4 French operators (Orange, SFR, Bouygues, Free)
-- Model may not generalize to other countries/networks
-
-⚠️ **Device Diversity**: Android-only, 9 device models
-- No iOS coverage
-- Limited device variety
-
-⚠️ **Demographics**: Narrow population (researchers/students, ages 19-38)
-- Model performance on broader, diverse population unknown
-
-#### Deployment Recommendations
-
-✅ **Acceptable Use Cases**:
-- **Trend monitoring** - tracking relative QoE changes over time
-- **A/B testing** - comparing network configurations or software updates
-- **Early warning system** - flagging potential issues for human review
-- **Research and analysis** - understanding QoE patterns and drivers
-
-❌ **NOT Suitable For**:
-- Automated network optimization decisions without human oversight
-- SLA violation detection and enforcement
-- Customer complaint prediction
-- Real-time service degradation alerts requiring immediate action
-- Any application where 40.5% error rate is unacceptable
-
-**Recommendation**: Deploy as a **"soft" decision support tool** providing probabilistic signals to combine with business rules, human review, and other data sources.
-
----
-
-## Installation and Usage
-
-### Prerequisites
-
-- Python 3.8+
-- Jupyter Notebook
-- Git
-
-### Installation Steps
+### Model Comparison
+
+All numbers from [`results/metrics/model_comparison.csv`](results/metrics/model_comparison.csv), regenerated end-to-end by [`scripts/run_leakage_experiment.py`](scripts/run_leakage_experiment.py) — test set n=309, stratified 80/20 split, seed 42.
+
+| Model | Features | Test Accuracy | F1 (macro) | Kappa | Train-Test Gap |
+| ------- | ---------- | --------------- | ----------- | ------- | ---------------- |
+| Baseline (majority class) | — | 50.8% | 0.135 | 0.000 | 0.0 |
+| Logistic Regression | Objective | 45.0% | 0.430 | 0.234 | 2.4 |
+| Decision Tree | Objective | 46.6% | 0.400 | 0.197 | 53.4 |
+| Random Forest | Objective | 46.9% | 0.429 | 0.241 | 51.5 |
+| **Gradient Boosting** | **Objective** | **48.2%** | **0.442** | **0.261** | 33.1 |
+| Logistic Regression | Full (leakage) | 77.7% | 0.727 | 0.679 | 0.1 |
+| Decision Tree | Full (leakage) | 75.7% | 0.722 | 0.638 | 24.3 |
+| **Random Forest** | **Full (leakage)** | **81.6%** | **0.793** | **0.735** | 15.2 |
+| Gradient Boosting | Full (leakage) | 79.6% | 0.763 | 0.705 | 13.7 |
+
+*On the large train-test gaps: the trees run at scikit-learn library defaults (no depth limits, no hyperparameter search — a documented scope decision), so they memorize the 1,234 training samples (Decision Tree 100% train accuracy, Random Forest 98.5%). Model ranking uses test metrics only and is unaffected; read 48.2% as the floor of an untuned model, not the ceiling of the approach.*
+
+## Quick Start
+
+The full dataset is committed in this repo (`data/raw/pokemon.csv`, 1,543 sessions), so everything runs from a fresh clone.
 
 ```bash
-# Clone repository
 git clone https://github.com/CY-HYUN/Poqemon-QoE-Dataset-master.git
 cd Poqemon-QoE-Dataset-master
 
-# Create virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # macOS/Linux
 
-# Install dependencies
 pip install -r requirements.txt
+python scripts/run_leakage_experiment.py   # reproduces every model number and figure in this README
 ```
 
-### Project Execution
+The script is self-contained (raw CSV in → metrics CSV + figures out) and is the canonical source for all reported model numbers. The notebooks hold the exploratory analysis behind it:
 
-Run analysis notebooks in order:
-1. `notebooks/01_data_understanding.ipynb`
-2. `notebooks/02_exploratory_data_analysis.ipynb`
-3. `notebooks/03_data_preprocessing.ipynb`
-4. `notebooks/04_modeling_and_evaluation.ipynb`
+| Order | Notebook | What it does |
+| ------- | ---------- | -------------- |
+| 1 | `notebooks/01_data_understanding.ipynb` | Validates the CSV, target distribution |
+| 2 | `notebooks/02_exploratory_data_analysis.ipynb` | Correlations, network ANOVA, buffering threshold |
+| 3 | `notebooks/03_data_preprocessing.ipynb` | Feature engineering; **writes `data/processed/*.csv`** (the script applies the same steps in-memory) |
+| 4 | `notebooks/04_modeling_and_evaluation.ipynb` | Earlier modeling exploration (no class weights, hand-set hyperparameters); **superseded by the script** for reported numbers |
 
-### Dataset Files
+Data note: the original Poqemon documentation cites 1,560 sessions; the distributed CSV contains 1,543. The discrepancy is verified and documented in notebook 01.
 
-Located in `data/raw/`:
-- `pokemon.csv` - Main dataset (CSV format)
-- `pokemon.arff` - Weka format
-- `pokemon.data` - OpenDocument format
-- `pokemon.names` - Feature descriptions
+## How It Works
 
----
+Four-stage pipeline on the PoQeMoN crowdsourcing dataset (LiSSi lab, Paris Est Creteil University: 181 testers, 4 French mobile operators, 9 Android devices):
+
+1. **Data understanding** — 1,543 sessions, 23 features in 5 categories (application, network, device, user, feedback), zero missing values, severe imbalance (MOS=4 is 50.8% of samples).
+2. **EDA** — buffering time is the strongest objective signal (r=-0.482); network type matters (ANOVA F=37.47, p<0.001, EDGE mean MOS 1.56 vs HSPA+ 3.84); QoF_* feedback features correlate up to r=0.841 with the target, flagging them as leakage.
+3. **Preprocessing** — drop identifiers and high-cardinality device columns, one-hot encode the operator, engineer 4 features (buffering severity, network generation, video/audio quality composites), build **two feature variants**: objective-only (drops the four QoF_* feedback ratings plus two near-constant columns — QoU_Ustedy, 92.4% identical, and QoA_VLCresolution, 95.6% at 360p — leaving 19 features) and full (all 25, the leakage benchmark). Stratified split, scaler fitted on train only.
+4. **Modeling** — baseline + 4 classifiers with balanced class weighting: `class_weight='balanced'` for Logistic Regression / Decision Tree / Random Forest; Gradient Boosting has no `class_weight` parameter, so it is fitted with balanced sample weights (`compute_sample_weight('balanced')`). All other hyperparameters are scikit-learn defaults. Evaluated on accuracy, macro F1, Cohen's kappa, and train-test gap; each model trained on both variants to measure the leakage gap.
+
+## Dataset at a Glance
+
+PoQeMoN crowdsourcing campaign (2015): 181 testers watched video over live French mobile networks while VLC-side metrics were logged and users rated each session.
+
+| MOS | Label | Count | Share |
+| ----- | ------- | ------- | ------- |
+| 1 | Bad | 93 | 6.0% |
+| 2 | Poor | 118 | 7.6% |
+| 3 | Fair | 246 | 15.9% |
+| 4 | Good | 784 | **50.8%** (majority class = baseline) |
+| 5 | Excellent | 302 | 19.6% |
+
+![MOS Distribution](results/figures/01_data_understanding/mos_distribution.png)
+
+The imbalance drives the design choices: stratified splitting, balanced class weights, and macro F1 / Cohen's kappa instead of accuracy alone.
+
+Network technology alone separates the extremes (one-way ANOVA F=37.47, p<0.001):
+
+| Network | EDGE (2G) | UMTS (3G) | HSPA | HSPA+ | LTE (4G) |
+| --------- | ----------- | ----------- | ------ | ------- | ---------- |
+| Mean MOS | 1.56 | 3.64 | 3.26 | 3.84 | 3.78 |
+
+## Key Findings
+
+1. **Data leakage, quantified: 33.3 points.** Best objective model 48.2% vs best full model 81.6% test accuracy (macro F1 0.442 vs 0.793). The gap replicates across all four model families (+29.1 to +34.6 points), so any result on this dataset that includes QoF_* features is measuring "predict the user's rating from the user's other ratings."
+2. **Balanced class weights move the errors, they don't raise the ceiling.** Honest accuracy lands below the majority baseline (48.2% vs 50.8%) because the models stop defaulting to "Good"; in exchange, Bad-session recall reaches 84.2% and kappa/macro F1 clearly beat the baseline. Under 50.8% imbalance, accuracy alone is the wrong yardstick.
+3. **Buffering is the dominant QoE driver** — the three buffering features hold 33.8% of the objective Random Forest's feature importance (time 17.8% + severity 13.0% + count 3.1%), and sessions with 3+ buffering events drop from MOS >= 3.6 to below 2.4.
+4. **The model family barely matters on objective features** — test accuracy spans only 45.0-48.2% and macro F1 0.400-0.442 across four different classifiers. The objective feature set, not the classifier, is the binding constraint.
+5. **Good vs Excellent lives in subjective perception** — objective MOS=5 recall is 43.3% (25 of 60 Excellent sessions predicted as Good); with the leaky QoF features it jumps to 93.3%.
+6. **Counterintuitive:** bitrate (r=0.090) and resolution (r=-0.022) barely correlate with satisfaction — adaptive streaming likely trades resolution against buffering.
+
+### Where the Objective Model Fails (per-class recall, Gradient Boosting objective)
+
+| Actual MOS | 1 (Bad) | 2 (Poor) | 3 (Fair) | 4 (Good) | 5 (Excellent) |
+| ------------ | --------- | ---------- | ---------- | ---------- | ---------------- |
+| Recall | **84.2%** | **16.7%** | 38.8% | 53.5% | 43.3% |
+
+With balanced class weights the failure mode is adjacent-class confusion in the crowded middle, not majority-class collapse: Poor is the weakest class (4 of 24 caught), and the Good/Excellent boundary blurs in both directions — 44 of 157 true Good sessions are predicted Excellent, 25 of 60 true Excellent sessions are predicted Good. With the leaky QoF features included, Excellent recall jumps to 93.3% and Poor to 62.5%, confirming that the missing signal is subjective perception, not technical metrics. Full confusion matrices in [docs/DETAILS.md](docs/DETAILS.md).
+
+## What 48.2% Is (and Isn't) Good For
+
+Suitable: trend monitoring, A/B comparison of network configurations, early-warning flags for human review (it catches 84% of Bad sessions). Not suitable: automated SLA enforcement or any decision where a ~52% raw error rate is unacceptable. Dataset caveats: 2015, Paris-region, Android-only, mostly 360p video. Full assessment in [docs/DETAILS.md](docs/DETAILS.md).
 
 ## Project Structure
 
-```
+```text
 Poqemon-QoE-Dataset-master/
-│
 ├── data/
-│   ├── raw/                        # Original dataset files
-│   │   ├── pokemon.csv
-│   │   ├── pokemon.arff
-│   │   ├── pokemon.data
-│   │   └── pokemon.names
-│   └── processed/                  # Preprocessed data (train/test splits)
-│
-├── notebooks/                      # Jupyter analysis notebooks
-│   ├── 01_data_understanding.ipynb
-│   ├── 02_exploratory_data_analysis.ipynb
-│   ├── 03_data_preprocessing.ipynb
-│   ├── 04_modeling_and_evaluation.ipynb
-│   ├── ANALYSIS_01_DATA_UNDERSTANDING.md
-│   ├── ANALYSIS_02_EXPLORATORY_DATA_ANALYSIS.md
-│   ├── ANALYSIS_03_DATA_PREPROCESSING.md
-│   └── ANALYSIS_04_MODELING_EVALUATION.md
-│
+│   ├── raw/                  # Full dataset, committed (pokemon.csv/.arff/.data/.names)
+│   └── processed/            # Train/test splits — generated by notebook 03
+├── scripts/
+│   └── run_leakage_experiment.py  # ⭐ Canonical experiment: raw CSV → metrics CSV + figures
+├── notebooks/                # 01-04 analysis notebooks + ANALYSIS_*.md writeups
 ├── results/
-│   ├── figures/                    # High-quality visualizations (DPI 300+)
-│   │   ├── 01_data_understanding/
-│   │   ├── 02_exploratory_data_analysis/
-│   │   └── 04_modeling_and_evaluation/
-│   └── metrics/
-│
-├── reports/
-│   ├── FINAL_PROJECT_REPORT.md     # Comprehensive final report
-│   └── Pokemon QoE Dataset Final Analysis Report_Changyong Hyun2.pdf
-│
+│   ├── figures/              # Committed visualizations (EDA, confusion matrices, comparison)
+│   └── metrics/model_comparison.csv
 ├── docs/
-│   ├── DATASET_DESCRIPTION.md      # Original dataset documentation
-│   ├── SETUP_GUIDE.md
-│   └── COMPLETION_SUMMARY.md
-│
-├── requirements.txt
-├── .gitignore
-└── README.md
+│   ├── DETAILS.md            # Full methodology, per-class results, critical assessment
+│   ├── DATASET_DESCRIPTION.md
+│   └── SETUP_GUIDE.md
+├── reports/FINAL_PROJECT_REPORT.md
+├── src/                      # Shared helpers (data loading, model utils, plotting)
+├── config/config.py
+└── requirements.txt
 ```
 
----
+## Tech Stack
 
-## Future Improvements
+Python 3.12+ (numbers verified with scikit-learn 1.9.0, pandas 3.0.3, numpy 2.5.1), pandas, numpy, scipy, scikit-learn, matplotlib, seaborn, Jupyter.
 
-### Immediate (High Impact)
+## More Detail
 
-1. **Advanced Class Imbalance Handling (SMOTE)**
-   - Implement Synthetic Minority Over-sampling Technique
-   - Expected improvement: **+5-10 percentage points** for minority classes
+- [docs/DETAILS.md](docs/DETAILS.md) — full methodology, feature catalog, per-class confusion analysis, limitations, references
+- [notebooks/ANALYSIS_01-04](notebooks/) — stage-by-stage findings written up per notebook
+- [reports/FINAL_PROJECT_REPORT.md](reports/FINAL_PROJECT_REPORT.md) — long-form report (historical; its model numbers predate the script and are superseded)
 
-2. **Hyperparameter Tuning**
-   - GridSearchCV on Gradient Boosting
-   - Expected improvement: **+2-5 percentage points** overall accuracy
+## Acknowledgments
 
-3. **Threshold Optimization**
-   - Adjust decision thresholds per class
-   - Expected improvement: **+3-7 percentage points** balanced accuracy
-
-### Medium-Term (Moderate Impact)
-
-1. **Advanced Feature Engineering**
-   - Interaction terms: buffering × network_generation
-   - Expected improvement: **+3-5 percentage points**
-
-2. **Try XGBoost**
-   - Better regularization and efficiency
-   - Expected improvement: **+2-4 percentage points**
-
-3. **Ensemble/Stacking**
-   - Combine multiple model predictions
-   - Expected improvement: **+1-3 percentage points**
-
-### Long-Term (Research & Data Collection)
-
-1. **Strategic Data Collection**
-   - Collect **10,000+ samples** (vs current 1,543)
-   - Modern networks (5G), HD/4K resolutions
-   - Expected improvement: **+10-20 percentage points**
-
-2. **Deploy as MLOps Pipeline**
-   - Automated retraining and monitoring
-   - Performance drift detection
-   - A/B testing framework
-
----
-
-## Conclusions
-
-This project successfully executed a complete and rigorous data science analysis of the Pokemon QoE dataset, culminating in a predictive model for user satisfaction.
-
-### Core Findings
-
-1. **Buffering is THE dominant factor** - 36.6% combined feature importance
-2. **59.5% accuracy achievable with objective metrics** - valuable for trend monitoring
-3. **Data leakage confirmed and quantified** - 22.4 percentage point gap
-4. **Fundamental gap between objective metrics and subjective perception** - MOS=5 prediction fails
-
-### Practical Value
-
-The 59.5% accuracy model provides value as a:
-
-✅ **Trend Monitoring Tool**
-✅ **A/B Testing Framework**
-✅ **Early Warning System**
-✅ **Research Platform**
-
-**Final Assessment**: This project delivers an honest, well-documented analysis demonstrating both the **potential and limitations** of objective QoE prediction.
-
----
-
-## References
-
-### Publications
-
-1. **Amour, L., Souihi, S., Hoceini, S., & Mellouk, A.** (2015). "Building a Large Dataset for Model-based QoE Prediction in the Mobile Environment." *MSWiM '15*, 313-317.
-
-2. **Moteau, S., Guillemin, F., & Houdoin, T.** (2017). "Correlation between QoS and QoE for HTTP YouTube content in Orange cellular networks." *SAR-SSI 2017*.
-
-### Dataset Source
-
-- **Project**: PoQeMoN (Platform Quality Evaluation of Mobile Networks)
-- **Institution**: LiSSi laboratory, Paris Est Créteil University (UPEC), France
-- **Contact**: lamine.amour@u-pec.fr
-
----
-
-## Appendix
-
-### Technology Stack
-
-**Core Technologies**:
-- Python 3.8+
-- pandas, numpy, scipy
-- scikit-learn
-- matplotlib, seaborn
-- Jupyter Notebook
-
-### Evaluation Metric Formulas
-
-**Cohen's Kappa**:
-```
-κ = (p_o - p_e) / (1 - p_e)
-
-Interpretation:
-  0.21-0.40: Fair agreement ← Our model: 0.335
-```
-
-**F1-Score (Macro)**:
-```
-F1_macro = average(F1_class1, ..., F1_class5)
-Treats all classes equally
-```
-
-### Quick Reference
-
-**MOS Scale**:
-
-| Score | Label | Dataset % |
-|-------|-------|-----------|
-| 5 | Excellent | 19.6% |
-| 4 | Good | **50.8%** |
-| 3 | Fair | 15.9% |
-| 2 | Poor | 7.6% |
-| 1 | Bad | 6.0% |
-
-**Network Performance**:
-
-| Technology | Generation | Mean MOS |
-|------------|------------|----------|
-| EDGE | 2G | 1.56 🔴 |
-| UMTS | 3G | 3.64 🟡 |
-| HSPA | 3.5G | 3.84 🟢 |
-| LTE | 4G | 3.78 🟢 |
-
----
-
-**Project Status**: ✅ Complete
+Dataset: PoQeMoN project, LiSSi laboratory, Paris Est Creteil University (UPEC), France (Amour et al., MSWiM '15). Academic use.
 
 **Author**: Changyong Hyun
-
-**License**: Academic Use
-
-**Acknowledgments**: Dataset provided by LiSSi laboratory, Paris Est Créteil University. Analysis follows best practices in data science storytelling and critical assessment.

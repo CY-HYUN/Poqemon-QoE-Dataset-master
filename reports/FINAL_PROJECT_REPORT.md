@@ -1,5 +1,7 @@
 # Pokemon QoE Dataset: Quality of Experience Prediction from Mobile Video Streaming Metrics
 
+> ⚠️ **Superseded numbers.** This report predates [`scripts/run_leakage_experiment.py`](../scripts/run_leakage_experiment.py), which is now the canonical source for all model numbers (balanced class weights, library defaults, macro F1). Quote the README / [`results/metrics/model_comparison.csv`](../results/metrics/model_comparison.csv), not the figures below. Kept as-is as a historical record.
+
 ## Final Project Report
 
 **Author:** Data Science Project
