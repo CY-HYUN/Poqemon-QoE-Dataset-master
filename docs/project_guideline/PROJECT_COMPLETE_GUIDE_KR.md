@@ -1,5 +1,7 @@
 # Pokemon QoE Dataset 프로젝트 완전 가이드
 
+> ⚠️ **대체된 수치.** 이 가이드는 [`scripts/run_leakage_experiment.py`](../../scripts/run_leakage_experiment.py)보다 먼저 쓰였고, 지금은 이 스크립트가 모든 모델 수치의 기준 출처입니다(균형 클래스 가중치, 라이브러리 기본값, macro F1). 아래 수치가 아니라 README / [`results/metrics/model_comparison.csv`](../../results/metrics/model_comparison.csv)를 인용하세요. 역사 기록으로 그대로 둡니다.
+
 ## 📋 목차
 1. [프로젝트 개요](#1-프로젝트-개요)
 2. [핵심 기술 개념](#2-핵심-기술-개념)

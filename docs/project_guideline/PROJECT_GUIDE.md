@@ -1,5 +1,7 @@
 # Pokemon QoE Dataset - Analysis Project
 
+> ⚠️ **Superseded numbers.** This guide predates [`scripts/run_leakage_experiment.py`](../../scripts/run_leakage_experiment.py), which is now the canonical source for all model numbers (balanced class weights, library defaults, macro F1). Quote the README / [`results/metrics/model_comparison.csv`](../../results/metrics/model_comparison.csv), not the figures below. Kept as-is as a historical record.
+
 ## Project Overview
 
 This project analyzes the Pokemon Quality of Experience (QoE) dataset to predict user satisfaction (MOS - Mean Opinion Score) from objective network and video quality metrics. The dataset was collected during a crowdsourcing campaign where users watched videos on mobile devices across different network conditions.

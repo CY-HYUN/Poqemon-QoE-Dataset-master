@@ -548,7 +548,7 @@ Proper Git ignore patterns:
 - **Feature Engineering:** Domain-informed new features
 
 ### Expected Outcomes
-- **Model Performance:** 70-80% accuracy achievable
+- **Model Performance:** 70-80% accuracy was the planning guess; the measured results are in README.md
 - **Key Factors:** Buffering events, network type, video quality
 - **Challenges:** Minority class performance, overfitting
 - **Real-world:** Deployment complexity, data requirements
