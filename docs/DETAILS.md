@@ -17,7 +17,7 @@ The Poqemon QoE dataset comes from the **PoQeMoN Project** (Platform Quality Eva
 
 ### Contents
 
-- **Samples**: 1,543 video viewing sessions in the distributed CSV (original documentation cites 1,560; the -1% discrepancy is documented in notebook 01)
+- **Samples**: 1,543 video viewing sessions in the distributed CSV (original documentation cites 1,560; notebook 01 loads 1,543 and the documentation does not explain the 17-session difference)
 - **Features**: 23 columns across 5 categories
 - **Target**: MOS (Mean Opinion Score), 1-5
 - **Missing values**: none
@@ -47,7 +47,7 @@ The 50.8% majority class defines the baseline every model must beat.
 `QoU_sex`, `QoU_age`, `QoU_Ustedy` (education; 92.4% identical values, so near-zero variance).
 
 **QoF — User Feedback (4 features) — the data-leakage risk**
-`QoF_begin`, `QoF_shift`, `QoF_audio`, `QoF_video`. These are subjective ratings the user gave during the session. `QoF_audio` correlates r=0.841 with MOS and `QoF_video` r=0.689 — they measure the same subjective perception as the target. Including them builds a "predict subjective from subjective" model that cannot be deployed, because in production you do not have the user's ratings.
+`QoF_begin`, `QoF_shift`, `QoF_audio`, `QoF_video`. These are the user's own subjective feedback ratings for the session (the dataset documentation lists them as "User feedback"). `QoF_audio` correlates r=0.841 with MOS and `QoF_video` r=0.689 — they measure the same subjective perception as the target. Including them builds a "predict subjective from subjective" model that cannot be deployed, because in production you do not have the user's ratings.
 
 ---
 
@@ -69,7 +69,7 @@ Validated the CSV against the official documentation: 1,543 rows (vs 1,560 docum
 | QoA_BUFFERINGtime | -0.482 | Strong negative — key predictor |
 | QoA_BUFFERINGcount | -0.411 | Moderate negative — key predictor |
 
-**Network type effect** (one-way ANOVA F=37.47, p<0.001):
+**Network type effect** (mean MOS per network type, notebook 02; no significance test is computed in the committed code):
 
 | Network | Mean MOS | n |
 | --------- | ---------- | ----- |
@@ -170,7 +170,7 @@ Source: `scripts/run_leakage_experiment.py` run output; figure: `results/figures
 
 - **Buffering dominates**: the three buffering features (raw time 17.8% + severity 13.0% + count 3.1%) sum to **33.8%** of total importance.
 - **Feature engineering paid off**: 3 of the top 10 are engineered features (Buffering_Severity, Video_Quality_Index, Audio_Quality).
-- **Network type is indirect**: despite ANOVA significance, QoS_type (2.4%) and Network_Generation are not in the top 10 — poor networks cause buffering, and the model learns from buffering directly.
+- **Network type is indirect**: despite the large gap in mean MOS between network types, QoS_type (2.4%) and Network_Generation are not in the top 10 — poor networks cause buffering, and the model learns from buffering directly.
 
 ---
 

@@ -99,10 +99,8 @@ After understanding the basic data structure (Notebook 01), we now need to **dis
 
 #### Statistical Significance:
 
-**ANOVA Test Results:**
-- F-statistic: 37.47
-- p-value: < 0.000001 (highly significant!)
-- **Conclusion:** ✅ Network type has **STATISTICALLY SIGNIFICANT** impact on MOS
+**ANOVA:** not computed in the committed notebooks or scripts. The mean-MOS gap above
+(EDGE 1.56 over 27 sessions vs HSPA+ 3.84) is the measured evidence.
 
 #### Expected vs Actual:
 

@@ -14,13 +14,13 @@ Machine learning on 1,543 real mobile video streaming sessions to predict user s
 
 The honest headline sits *below* the majority baseline on raw accuracy, and that is not a typo: with genuinely balanced class weights the models stop defaulting to the majority class ("Good", 50.8% of samples), trading raw accuracy for minority-class detection — Bad-session recall rises to 84.2%, and the chance-corrected metrics clearly beat the baseline (kappa 0.261 vs 0.000, macro F1 0.442 vs 0.135). A majority-class predictor scores 50.8% accuracy while detecting nothing.
 
-The leakage audit is the core contribution. The QoF_* features are ratings the user gave during the session (QoF_audio correlates r=0.841 with MOS) — information a deployed system never has. Training identical models with and without them turns "this benchmark looks too good" into a measured 33.3-point inflation, replicated across all four model families (+29.1 to +34.6 points).
+The leakage audit is the core contribution. The QoF_* features are the user's own feedback ratings for the session (the dataset documentation lists them as "User feedback"; QoF_audio correlates r=0.841 with MOS) — information a deployed system never has. Training identical models with and without them turns "this benchmark looks too good" into a measured 33.3-point inflation, replicated across all four model families (+29.1 to +34.6 points).
 
 ![Model Comparison](results/figures/04_modeling_and_evaluation/8_model_comparison.png)
 
 ### Model Comparison
 
-All numbers from [`results/metrics/model_comparison.csv`](results/metrics/model_comparison.csv), regenerated end-to-end by [`scripts/run_leakage_experiment.py`](scripts/run_leakage_experiment.py) — test set n=309, stratified 80/20 split, seed 42.
+All numbers from [`results/metrics/model_comparison.csv`](results/metrics/model_comparison.csv), regenerated end-to-end by [`scripts/run_leakage_experiment.py`](scripts/run_leakage_experiment.py) — test set n=309, stratified 80/20 split, seed 42. These come from that one split: no repeated splits or confidence intervals, so read differences of a point or two between models as noise.
 
 | Model | Features | Test Accuracy | F1 (macro) | Kappa | Train-Test Gap |
 | ------- | ---------- | --------------- | ----------- | ------- | ---------------- |
@@ -52,23 +52,25 @@ pip install -r requirements.txt
 python scripts/run_leakage_experiment.py   # reproduces every model number and figure in this README
 ```
 
+Use the pinned versions in `requirements.txt`: the tree-based models (Decision Tree, Random Forest, Gradient Boosting) give different scores under other scikit-learn versions.
+
 The script is self-contained (raw CSV in → metrics CSV + figures out) and is the canonical source for all reported model numbers. The notebooks hold the exploratory analysis behind it:
 
 | Order | Notebook | What it does |
 | ------- | ---------- | -------------- |
 | 1 | `notebooks/01_data_understanding.ipynb` | Validates the CSV, target distribution |
-| 2 | `notebooks/02_exploratory_data_analysis.ipynb` | Correlations, network ANOVA, buffering threshold |
+| 2 | `notebooks/02_exploratory_data_analysis.ipynb` | Correlations, mean MOS by network type, buffering threshold |
 | 3 | `notebooks/03_data_preprocessing.ipynb` | Feature engineering; **writes `data/processed/*.csv`** (the script applies the same steps in-memory) |
 | 4 | `notebooks/04_modeling_and_evaluation.ipynb` | Earlier modeling exploration (no class weights, hand-set hyperparameters); **superseded by the script** for reported numbers |
 
-Data note: the original Poqemon documentation cites 1,560 sessions; the distributed CSV contains 1,543. The discrepancy is verified and documented in notebook 01.
+Data note: the original Poqemon documentation cites 1,560 sessions; the distributed CSV contains 1,543 (notebook 01 loads 1,543). The documentation does not explain the 17-session difference.
 
 ## How It Works
 
 Four-stage pipeline on the PoQeMoN crowdsourcing dataset (LiSSi lab, Paris Est Creteil University: 181 testers, 4 French mobile operators, 9 Android devices):
 
-1. **Data understanding** — 1,543 sessions, 23 features in 5 categories (application, network, device, user, feedback), zero missing values, severe imbalance (MOS=4 is 50.8% of samples).
-2. **EDA** — buffering time is the strongest objective signal (r=-0.482); network type matters (ANOVA F=37.47, p<0.001, EDGE mean MOS 1.56 vs HSPA+ 3.84); QoF_* feedback features correlate up to r=0.841 with the target, flagging them as leakage.
+1. **Data understanding** — 1,543 sessions, 23 columns (20 features in 5 categories — application, network, device, user, feedback — plus `id`, `user_id` and the MOS target), zero missing values, severe imbalance (MOS=4 is 50.8% of samples).
+2. **EDA** — buffering time is the strongest objective signal (r=-0.482); network type matters (EDGE mean MOS 1.56 over 27 sessions vs HSPA+ 3.84 over 572); QoF_* feedback features correlate up to r=0.841 with the target, flagging them as leakage.
 3. **Preprocessing** — drop identifiers and high-cardinality device columns, one-hot encode the operator, engineer 4 features (buffering severity, network generation, video/audio quality composites), build **two feature variants**: objective-only (drops the four QoF_* feedback ratings plus two near-constant columns — QoU_Ustedy, 92.4% identical, and QoA_VLCresolution, 95.6% at 360p — leaving 19 features) and full (all 25, the leakage benchmark). Stratified split, scaler fitted on train only.
 4. **Modeling** — baseline + 4 classifiers with balanced class weighting: `class_weight='balanced'` for Logistic Regression / Decision Tree / Random Forest; Gradient Boosting has no `class_weight` parameter, so it is fitted with balanced sample weights (`compute_sample_weight('balanced')`). All other hyperparameters are scikit-learn defaults. Evaluated on accuracy, macro F1, Cohen's kappa, and train-test gap; each model trained on both variants to measure the leakage gap.
 
@@ -88,11 +90,12 @@ PoQeMoN crowdsourcing campaign (2015): 181 testers watched video over live Frenc
 
 The imbalance drives the design choices: stratified splitting, balanced class weights, and macro F1 / Cohen's kappa instead of accuracy alone.
 
-Network technology alone separates the extremes (one-way ANOVA F=37.47, p<0.001):
+Network technology alone separates the extremes (notebook 02):
 
 | Network | EDGE (2G) | UMTS (3G) | HSPA | HSPA+ | LTE (4G) |
 | --------- | ----------- | ----------- | ------ | ------- | ---------- |
 | Mean MOS | 1.56 | 3.64 | 3.26 | 3.84 | 3.78 |
+| Sessions | 27 | 399 | 72 | 572 | 473 |
 
 ## Key Findings
 
@@ -113,7 +116,7 @@ With balanced class weights the failure mode is adjacent-class confusion in the 
 
 ## What 48.2% Is (and Isn't) Good For
 
-Suitable: trend monitoring, A/B comparison of network configurations, early-warning flags for human review (it catches 84% of Bad sessions). Not suitable: automated SLA enforcement or any decision where a ~52% raw error rate is unacceptable. Dataset caveats: 2015, Paris-region, Android-only, mostly 360p video. Full assessment in [docs/DETAILS.md](docs/DETAILS.md).
+Suitable: trend monitoring, A/B comparison of network configurations, early-warning flags for human review (it catches 84% of Bad sessions). Not suitable: automated SLA enforcement or any decision where a ~52% raw error rate is unacceptable. Dataset caveats: 2015, Paris-region, Android-only, mostly 360p video. Method caveats: one split and one seed (no confidence intervals), library-default hyperparameters, and one engineered feature (`Video_Quality_Index`) is scaled by dataset-wide maxima computed before the split, a small leak from the test set. Full assessment in [docs/DETAILS.md](docs/DETAILS.md).
 
 ## Project Structure
 
@@ -140,7 +143,7 @@ Poqemon-QoE-Dataset-master/
 
 ## Tech Stack
 
-Python 3.12+ (numbers verified with scikit-learn 1.9.0, pandas 3.0.3, numpy 2.5.1), pandas, numpy, scipy, scikit-learn, matplotlib, seaborn, Jupyter.
+Python 3.12+ (numbers produced with scikit-learn 1.9.0, pandas 3.0.3, numpy 2.5.1, pinned in `requirements.txt`), pandas, numpy, scipy, scikit-learn, matplotlib, seaborn, Jupyter.
 
 ## More Detail
 
